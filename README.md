@@ -1,2 +1,2 @@
-# PSDynamicParameter
-Sample code for the PowerShell Dynamic Parameter blogs
+# PowerShell DynamicParameter
+This is the sample code for the PowerShell Dynamic Parameter blogs
