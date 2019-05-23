@@ -129,11 +129,11 @@ param(
 [System.Management.Automation.RuntimeDefinedParameterDictionary] $ParamDictionary
 )
     Set-StrictMode -Version Latest
-    function logit($msg) {
+    function Write-ValidateSetLog($msg) {
         if ( $DebugFile ) { "$(Get-Date -form 's') $msg" | out-file $DebugFile -Append -Encoding utf8 }
     }
 
-    logit "makeDynamicParam for $ParameterName"
+    Write-ValidateSetLog "makeDynamicParam for $ParameterName"
 
     # create a dictionary to return,
     if ( !$ParamDictionary )
@@ -158,20 +158,20 @@ param(
     $attributes.ValueFromPipeline = [bool]$ValueFromPipeline
     $attributes.ValueFromPipelineByPropertyName = [bool]$ValueFromPipelineByPropertyName
     $attributes.Position = $Position
-    logit "Attributes are $(ConvertTo-Json ($attributes | Select-Object * -ExcludeProperty "TypeId")  -Depth 1)"
+    Write-ValidateSetLog "Attributes are $(ConvertTo-Json ($attributes | Select-Object * -ExcludeProperty "TypeId")  -Depth 1)"
 
     if ( $ValidateSetScript )
     {
         try
         {
-            logit "About to invoke script passed in"
+            Write-ValidateSetLog "About to invoke script passed in"
             $ValidateSet = $ValidateSetScript.Invoke()
         }
         catch {
-            logit "Exception from ValidateSetScript: $_"
+            Write-ValidateSetLog "Exception from ValidateSetScript: $_"
         }
     }
-    logit "list is now $($ValidateSet | out-string)"
+    Write-ValidateSetLog "list is now $($ValidateSet | out-string)"
     if ( $ValidateSet )
     {
         $paramOptions = New-Object System.Management.Automation.ValidateSetAttribute -ArgumentList $ValidateSet

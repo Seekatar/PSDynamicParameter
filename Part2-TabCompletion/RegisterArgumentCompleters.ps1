@@ -1,30 +1,4 @@
-$script:debuggingTabCompletion = $true
-if ($env:TEMP)
-{
-    $script:debuggingTabFile = "$env:TEMP\tabcompletion.jsonc"
-}
-else
-{
-    # WSL on Linux doesn't have TEMP
-    $script:debuggingTabFile = New-TemporaryFile
-}
-
 $script:serverInstance = "localhost"
-$script:logAst = $true
-
-function script:logit {
-param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
-
-    if ( $script:debuggingTabCompletion )
-    {
-        [System.IO.File]::AppendAllText($script:debuggingTabFile, `
-            "// === User pressed tab ===`n$(ConvertTo-Json @{commandName=$commandName;parameterName=$parameterName;wordToComplete=$wordToComplete;fakeBoundParameter=$fakeBoundParameter}),`n")
-        if ($script:logAst)
-        {
-            [System.IO.File]::AppendAllText($script:debuggingTabFile, "$(ConvertTo-Json $commandAst -Depth 1)`n") # > 1 breaks tab completion due to error
-        }
-    }
-}
 
 function script:Get-TableName {
 param(
@@ -32,7 +6,7 @@ param(
 [string] $DatabaseName,
 [string] $WordToComplete
 )
-    Invoke-SqlCmd -ServerInstance $script:serverInstance -Database $DatabaseName -Query "select name from sys.tables WHERE NAME LIKE '$WordToComplete%' ORDER BY name" |
+    Invoke-SqlCmdTest -ServerInstance $script:serverInstance -Database $DatabaseName -Query "select name from sys.tables WHERE NAME LIKE '$WordToComplete%' ORDER BY name" |
             Select-Object -ExpandProperty name
 }
 
@@ -45,7 +19,7 @@ param(
 [string] $WordToComplete
 )
     Set-StrictMode -Version Latest
-    Invoke-SqlCmd -ServerInstance $script:serverInstance -Database $DatabaseName -Query "select COLUMN_NAME NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$TableName' AND COLUMN_NAME LIKE '$WordToComplete%' ORDER BY NAME" |
+    Invoke-SqlCmdTest -ServerInstance $script:serverInstance -Database $DatabaseName -Query "select COLUMN_NAME NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$TableName' AND COLUMN_NAME LIKE '$WordToComplete%' ORDER BY NAME" |
             Select-Object -ExpandProperty name
 }
 
@@ -67,10 +41,10 @@ $fakeBoundParameter
 $script:databaseTabComplete = {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    logit $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
+    Write-TabCompletionLog $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
     checkServerInstance $fakeBoundParameter
 
-    return Invoke-SqlCmd -ServerInstance $script:serverInstance `
+    return Invoke-SqlCmdTest -ServerInstance $script:serverInstance `
             -Database master `
             -Query "select name from sys.databases WHERE NAME LIKE '$WordToComplete%' ORDER BY NAME" |
             Select-Object -ExpandProperty name
@@ -80,7 +54,7 @@ $script:databaseTabComplete = {
 $script:tableTabComplete = {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    logit $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
+    Write-TabCompletionLog $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
     checkServerInstance $fakeBoundParameter
 
     if ( $fakeBoundParameter.keys -contains "Database")
@@ -96,7 +70,7 @@ $script:tableTabComplete = {
 $script:columnTabComplete = {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    logit $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
+    Write-TabCompletionLog $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
 
     checkServerInstance $fakeBoundParameter
 
@@ -117,25 +91,45 @@ $script:columnTabComplete = {
     }
 }
 
-$script:serverInstanceTabComplete = {
+$script:localhostTabComplete = {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    logit $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
+    Write-TabCompletionLog $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
 
+    $progressName = "This is a sample of the long process"
+    Write-Progress $progressName
+    foreach ($i in 0..10)
+    {
+        Write-Progress $progressName -PercentComplete ($i*10) -Status "$i"
+        Start-Sleep -Milliseconds 100
+    }
+    Write-Progress $progressName -Completed
     return "localhost","127.0.0.1","::1"
 }
 
-Register-ArgumentCompleter -CommandName "Get-SQLRow","Get-SQLTable","Get-SQLColumn" -ParameterName "Database" -ScriptBlock $script:databaseTabComplete
-Register-ArgumentCompleter -CommandName "Get-SQLRow","Get-SQLColumn" -ParameterName "Table" -ScriptBlock $script:tableTabComplete
-Register-ArgumentCompleter -CommandName "Get-SQLRow" -ParameterName "Column" -ScriptBlock $script:columnTabComplete
-Register-ArgumentCompleter -CommandName "Get-SQLServerInstance" -ParameterName "ServerInstance" -ScriptBlock $script:serverInstanceTabComplete
+$script:nativeCommandTabComplete = {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-function Get-TabCompletionLogFile
-{
-[CmdletBinding()]
-param()
-Set-StrictMode -Version Latest
+    Write-TabCompletionLog $commandName $parameterName $wordToComplete $commandAst $fakeBoundParameter
 
-return $script:debuggingTabFile
-
+    if ($parameterName.CommandElements[-1] -match "^-animal$")
+    {
+        "chicken","pig","elephant"
+    }
 }
+
+Register-ArgumentCompleter -CommandName "Get-SQLRow","Get-SQLTable","Get-SQLColumn" `
+        -ParameterName "Database" `
+        -ScriptBlock $script:databaseTabComplete
+Register-ArgumentCompleter -CommandName "Get-SQLRow","Get-SQLColumn" `
+        -ParameterName "Table" `
+        -ScriptBlock $script:tableTabComplete
+Register-ArgumentCompleter -CommandName "Get-SQLRow" `
+        -ParameterName "Column" `
+        -ScriptBlock $script:columnTabComplete
+Register-ArgumentCompleter -CommandName "Get-SQLRow" `
+        -ParameterName "OrderBy" `
+        -ScriptBlock $script:columnTabComplete
+Register-ArgumentCompleter -CommandName "Get-LocalHost" `
+        -ParameterName "Name" `
+        -ScriptBlock $script:localhostTabComplete

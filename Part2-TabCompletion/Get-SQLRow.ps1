@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Test script for Register-ArgumentCompleter blog post
+Test script for Register-ArgumentCompleter blog post to get rows from a SQL Server database
 
 .PARAMETER Database
 Database name, can use tab completion
@@ -21,27 +21,30 @@ If OrderBy is used can change order
 Number of rows to return, defaults to 10
 
 .PARAMETER ServerInstance
-Server/instance to run the queries on
+Server/instance to run the queries on, defaults to localhost
 
 .EXAMPLE
-An example
+Get-SQLRow -Database Northwind -Table Customers -Column * | ft
+
+.EXAMPLE
+Get-SQLRow -Database Northwind -Table Customers -Column CustomerID,CompanyName -OrderBy CompanyName
 
 .NOTES
 WARNING: This is just a sample and only makes a modest attempt at prevent SQL injection.
 #>
-
-# register tab completion
-. (Join-Path $PSScriptRoot "RegisterArgumentCompleters.ps1")
-
 function Get-SQLRow
 {
 [CmdletBinding()]
 param(
+[ValidatePattern('^[\w\d_@#]+$')]
 [Parameter(Mandatory)]
 [string] $Database,
+[ValidatePattern('^[\w\d_@#]+$')]
 [Parameter(Mandatory)]
 [string] $Table,
+[ValidatePattern('^[\w\d_@#,*]+$')]
 [string[]] $Column,
+[ValidatePattern('^[\w\d_@#,*]+$')]
 [string[]] $OrderBy,
 [switch] $Descending,
 [ValidateRange(1,100000)]
@@ -52,13 +55,21 @@ param(
 
 Set-StrictMode -Version Latest
 
-$query = "Select TOP $Top $($Column -join ',') from $table"
+$query = "SELECT TOP $Top $($Column -join ',') FROM $table"
+if ($OrderBy)
+{
+    $query += " ORDER BY $($OrderBy -join ',')"
+    if ($Descending)
+    {
+        $query += " DESC"
+    }
+}
+
 if ($query -match "[';]")
 {
     throw "Possible SQL injection in '$query'"
 }
-Write-Verbose "Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query `"$query`""
 
-Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query $query
+Invoke-SqlcmdTest $ServerInstance $Database $query
 
 }

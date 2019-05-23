@@ -6,7 +6,7 @@ Test script for Register-ArgumentCompleter blog post to get table names
 Database name, can use tab completion
 
 .PARAMETER ServerInstance
-Server/instance to run the queries on
+Server/instance to run the queries on, defaults to localhost
 
 .EXAMPLE
 Get-SQLTable -Database Northwind
@@ -20,6 +20,7 @@ function Get-SQLTable
 [CmdletBinding()]
 param(
 [Parameter(Mandatory)]
+[ValidatePattern('^[\w\d_@#]+$')]
 [string] $Database,
 [ValidateNotNullOrEmpty()]
 [string] $ServerInstance = "localhost"
@@ -29,8 +30,6 @@ Set-StrictMode -Version Latest
 
 $query = "Select name from sys.tables order by name"
 
-Write-Verbose "Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query `"$query`""
-
-Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query $query
+Invoke-SqlcmdTest $ServerInstance $Database $query
 
 }

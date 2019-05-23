@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Test script for Register-ArgumentCompleter blog post
+Test script for Register-ArgumentCompleter blog post to get the column names for a table
 
 .PARAMETER Database
 Database name, can use tab completion
@@ -9,10 +9,10 @@ Database name, can use tab completion
 Table name, can use tab completion
 
 .PARAMETER ServerInstance
-Server/instance to run the queries on
+Server/instance to run the queries on, defaults to localhost
 
 .EXAMPLE
-An example
+Get-SQLColumn -Database Northwind -Table Customers
 
 .NOTES
 WARNING: This is just a sample and only makes a modest attempt at prevent SQL injection.
@@ -25,8 +25,10 @@ function Get-SQLColumn
 {
 [CmdletBinding()]
 param(
+[ValidatePattern('^[\w\d_@#]+$')]
 [Parameter(Mandatory)]
 [string] $Database,
+[ValidatePattern('^[\w\d_@#]+$')]
 [Parameter(Mandatory)]
 [string] $Table,
 [ValidateNotNullOrEmpty()]
@@ -35,14 +37,13 @@ param(
 
 Set-StrictMode -Version Latest
 
-$query = "select COLUMN_NAME NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$TableName' ORDER BY NAME"
-
-if ($query -match "[';]")
+if ($Table -match "[';]")
 {
     throw "Possible SQL injection in '$query'"
 }
-Write-Verbose "Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query `"$query`""
 
-Invoke-Sqlcmd -ServerInstance $ServerInstance -Database $Database -Query $query
+$query = "select COLUMN_NAME NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$Table' ORDER BY NAME"
+
+Invoke-SqlcmdTest $ServerInstance $Database $query
 
 }
